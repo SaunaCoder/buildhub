@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../firebase");
-const authMiddleware = require('../authMiddleware')
-const authorVerification = require('../authorVerification')
+const authMiddleware = require('../authMiddleware');
+const authorVerification = require('../authorVerification');
 
 // =========================
 // BUILDS CRUD
@@ -47,8 +47,8 @@ router.get("/:buildId", authMiddleware, async (req, res) => {
 // UPDATE build
 router.put("/:buildId", authMiddleware, async (req, res) => {
   try {
-    const old_doc = db.collection("builds").doc(req.params.buildId)
-    const isAuthor = await authorVerification(old_doc, req.user.uid)
+    const old_doc = db.collection("builds").doc(req.params.buildId);
+    const isAuthor = await authorVerification(old_doc, req.user.uid);
 
     if (isAuthor) {
       const updated = { ...req.body, updated_at: new Date() };
@@ -56,7 +56,7 @@ router.put("/:buildId", authMiddleware, async (req, res) => {
       res.json({ message: "Build updated" });
     }
     else {
-      res.status(403).json({ error: "You are not the author!" })
+      res.status(403).json({ error: "You are not the author!" });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -66,15 +66,15 @@ router.put("/:buildId", authMiddleware, async (req, res) => {
 // DELETE build
 router.delete("/:buildId", authMiddleware, async (req, res) => {
   try {
-    const old_doc = db.collection("builds").doc(req.params.buildId)
-    const isAuthor = await authorVerification(old_doc, req.user.uid)
+    const old_doc = db.collection("builds").doc(req.params.buildId);
+    const isAuthor = await authorVerification(old_doc, req.user.uid);
 
     if (isAuthor) {
       await db.collection("builds").doc(req.params.buildId).delete();
       res.json({ message: "Build deleted" });
     }
     else {
-      res.status(403).json({ error: "You are not the author!" })
+      res.status(403).json({ error: "You are not the author!" });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -135,7 +135,7 @@ router.put("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
       res.json({ message: "Level updated" });
     }
     else {
-      res.status(403).json({ error: "You are not the author!" })
+      res.status(403).json({ error: "You are not the author!" });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -152,7 +152,7 @@ router.delete("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
       res.json({ message: "Level deleted" });
     }
     else {
-      res.status(403).json({ error: "You are not the author!" })
+      res.status(403).json({ error: "You are not the author!" });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
