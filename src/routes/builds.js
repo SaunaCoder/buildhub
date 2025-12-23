@@ -1,15 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../firebase");
+const authMiddleware = require('../authMiddleware')
+const authorVerification = require('../authorVerification')
 
 // =========================
 // BUILDS CRUD
 // =========================
 
 // CREATE build
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, description, author_id } = req.body;
+    const { name, description } = req.body;
+    const author_id = req.user.uid;
     const now = new Date();
     const build = { name, description, author_id, created_at: now, updated_at: now };
     const docRef = await db.collection("builds").add(build);
@@ -20,7 +23,7 @@ router.post("/", async (req, res) => {
 });
 
 // READ all builds
-router.get("/", async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
     const snapshot = await db.collection("builds").get();
     const builds = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -31,7 +34,7 @@ router.get("/", async (req, res) => {
 });
 
 // READ single build
-router.get("/:buildId", async (req, res) => {
+router.get("/:buildId", authMiddleware, async (req, res) => {
   try {
     const doc = await db.collection("builds").doc(req.params.buildId).get();
     if (!doc.exists) return res.status(404).json({ message: "Build not found" });
@@ -42,21 +45,37 @@ router.get("/:buildId", async (req, res) => {
 });
 
 // UPDATE build
-router.put("/:buildId", async (req, res) => {
+router.put("/:buildId", authMiddleware, async (req, res) => {
   try {
-    const updated = { ...req.body, updated_at: new Date() };
-    await db.collection("builds").doc(req.params.buildId).update(updated);
-    res.json({ message: "Build updated" });
+    const old_doc = db.collection("builds").doc(req.params.buildId)
+    const isAuthor = await authorVerification(old_doc, req.user.uid)
+
+    if (isAuthor) {
+      const updated = { ...req.body, updated_at: new Date() };
+      await db.collection("builds").doc(req.params.buildId).update(updated);
+      res.json({ message: "Build updated" });
+    }
+    else {
+      res.status(403).json({ error: "You are not the author!" })
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE build
-router.delete("/:buildId", async (req, res) => {
+router.delete("/:buildId", authMiddleware, async (req, res) => {
   try {
-    await db.collection("builds").doc(req.params.buildId).delete();
-    res.json({ message: "Build deleted" });
+    const old_doc = db.collection("builds").doc(req.params.buildId)
+    const isAuthor = await authorVerification(old_doc, req.user.uid)
+
+    if (isAuthor) {
+      await db.collection("builds").doc(req.params.buildId).delete();
+      res.json({ message: "Build deleted" });
+    }
+    else {
+      res.status(403).json({ error: "You are not the author!" })
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -67,20 +86,23 @@ router.delete("/:buildId", async (req, res) => {
 // =========================
 
 // CREATE level
-router.post("/:buildId/levels", async (req, res) => {
+router.post("/:buildId/levels", authMiddleware, async (req, res) => {
   try {
     const { className, feats = [], cantrips = [], spells = [], comment = "" } = req.body;
     const levelData = { class: className, feats, cantrips, spells, comment };
-    const docRef = await db.collection("builds").doc(req.params.buildId)
-      .collection("levels").add(levelData);
-    res.status(201).json({ id: docRef.id });
+    const build = await db.collection("builds").doc(req.params.buildId);
+    const isAuthor = await authorVerification(build, req.user.uid);
+    if (isAuthor) {
+      build.collection("levels").doc(req.params.levelId).add(levelData);
+      res.status(201).json({ id: docRef.id });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // READ all levels
-router.get("/:buildId/levels", async (req, res) => {
+router.get("/:buildId/levels", authMiddleware, async (req, res) => {
   try {
     const snapshot = await db.collection("builds").doc(req.params.buildId)
       .collection("levels").get();
@@ -92,7 +114,7 @@ router.get("/:buildId/levels", async (req, res) => {
 });
 
 // READ single level
-router.get("/:buildId/levels/:levelId", async (req, res) => {
+router.get("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
   try {
     const doc = await db.collection("builds").doc(req.params.buildId)
       .collection("levels").doc(req.params.levelId).get();
@@ -104,22 +126,34 @@ router.get("/:buildId/levels/:levelId", async (req, res) => {
 });
 
 // UPDATE level
-router.put("/:buildId/levels/:levelId", async (req, res) => {
+router.put("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
   try {
-    await db.collection("builds").doc(req.params.buildId)
-      .collection("levels").doc(req.params.levelId).update(req.body);
-    res.json({ message: "Level updated" });
+    const build = await db.collection("builds").doc(req.params.buildId);
+    const isAuthor = await authorVerification(build, req.user.uid);
+    if (isAuthor) {
+      build.collection("levels").doc(req.params.levelId).update(req.body);
+      res.json({ message: "Level updated" });
+    }
+    else {
+      res.status(403).json({ error: "You are not the author!" })
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE level
-router.delete("/:buildId/levels/:levelId", async (req, res) => {
+router.delete("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
   try {
-    await db.collection("builds").doc(req.params.buildId)
-      .collection("levels").doc(req.params.levelId).delete();
-    res.json({ message: "Level deleted" });
+    const build = await db.collection("builds").doc(req.params.buildId);
+    const isAuthor = await authorVerification(build, req.user.uid);
+    if (isAuthor) {
+      build.collection("levels").doc(req.params.levelId).delete();
+      res.json({ message: "Level deleted" });
+    }
+    else {
+      res.status(403).json({ error: "You are not the author!" })
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
