@@ -47,3 +47,6 @@ router.put("/me", authMiddleware, async(req, res) => {
 });
 
 // TODO create profile and account delete functionality
+
+
+module.exports = router;
