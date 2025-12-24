@@ -37,8 +37,10 @@ router.get("/", authMiddleware, async (req, res) => {
 router.get("/:buildId", authMiddleware, async (req, res) => {
   try {
     const doc = await db.collection("builds").doc(req.params.buildId).get();
+    const levels_snapshot = await db.collection("builds").doc(req.params.buildId).collection("levels").get();
+    const levels = levels_snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (!doc.exists) return res.status(404).json({ message: "Build not found" });
-    res.json({ id: doc.id, ...doc.data() });
+    res.json({ id: doc.id, ...doc.data(), levels });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -158,5 +160,7 @@ router.delete("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 module.exports = router;
