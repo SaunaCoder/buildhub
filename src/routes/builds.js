@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require("../firebase");
 const authMiddleware = require('../authMiddleware');
 const authorVerification = require('../authorVerification');
+const { FieldValue } = require("firebase-admin/firestore");
 
 // =========================
 // BUILDS CRUD
@@ -13,8 +14,9 @@ router.post("/", authMiddleware, async (req, res) => {
   try {
     const { name, description } = req.body;
     const author_id = req.user.uid;
+    const likes_count = 0;
     const now = new Date();
-    const build = { name, description, author_id, created_at: now, updated_at: now };
+    const build = { name, description, author_id, likes_count, created_at: now, updated_at: now };
     const docRef = await db.collection("builds").add(build);
     res.status(201).json({ id: docRef.id });
   } catch (err) {
@@ -161,6 +163,37 @@ router.delete("/:buildId/levels/:levelId", authMiddleware, async (req, res) => {
   }
 });
 
+// CREATE like
+router.post("/:buildId/likes", authMiddleware, async (req, res) => {
+  try {
+    const build = db.collection("builds").doc(req.params.buildId);
+    const like = build.collection("likes").doc(req.user.uid);
 
+    await db.runTransaction(async (tx) => {
+      const build_snapshot = await tx.get(build);
+      if (!build_snapshot.exists) {
+        throw new Error("Build not found");
+      }
+
+      const like_snapshot = await tx.get(like);
+
+      if (like_snapshot.exists) {
+        tx.delete(like);
+        tx.update(build, {
+          likes_count: FieldValue.increment(-1),
+        });
+      } else {
+        tx.set(like, { created_at: new Date() });
+        tx.update(build, {
+          likes_count: FieldValue.increment(1),
+        });
+      }
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
