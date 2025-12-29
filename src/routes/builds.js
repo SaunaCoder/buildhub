@@ -196,4 +196,76 @@ router.post("/:buildId/likes", authMiddleware, async (req, res) => {
   }
 });
 
+
+// COMMENTS & REPLIES
+
+router.post('/:buildID/comments', authMiddleware, async (req, res) => {
+  try {
+    const build = db.collection('builds').doc(req.params.buildID);
+    const data = { author: req.user.uid, text: req.body.text, created_at: new Date() };
+    const build_snapshot = await build.get();
+    if (!build_snapshot.exists) {
+      return res.status(404).json({error: "build does not exist"});
+    }
+    await build.collection("comments").add(data);
+    res.status(201).json({ message: "comment was added" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:buildID/comments/:commentID', authMiddleware, async (req, res) => {
+  try {
+    const comment = db.collection('builds').doc(req.params.buildID).collection('comments').doc(req.params.commentID);
+    const comment_snapshot = await comment.get();
+    const isAuthor = authorVerification(comment, req.user.uid);
+    if (!comment_snapshot.exists) {
+      return res.status(404).json({ error: "comment does not exist" });
+    }
+    if (!isAuthor) {
+      return res.status(403).json({ error: "You are not the author" });
+    }
+    await comment.delete();
+
+    //TODO Delete replies related to the comment
+
+    res.json({ message: "Comment deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:buildID/comments/:commentID', authMiddleware, async (req, res) => {
+  try {
+    const comment = db.collection('builds').doc(req.params.buildID).collection('comments').doc(req.params.commentID);
+    const comment_snapshot = await comment.get();
+    const data = {author_id: req.user.uid, text: req.body.text};
+    if (!comment_snapshot.exists) {
+      return res.status(404).json({ error: "Comment does not exist" });
+    }
+    await comment.collection('replies').add(data);
+    res.status(201).json({ message: "Reply was added" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:buildID/comments/:commentID/replies/:replyID', authMiddleware, async (req, res) => {
+  try {
+    const reply = db.collection('builds').doc(req.params.buildID).collection('comments').doc(req.params.commentID).collection('replies').doc(req.params.replyID);
+    const reply_snapshot = await reply.get();
+    const isAuthor = authorVerification(reply, req.user.uid);
+    if (!reply_snapshot.exists) {
+      return res.status(404).json({ error: "Reply does not exist" });
+    }
+    if (!isAuthor) {
+      return res.status(403).json({ error: "You are not the author" });
+    }
+    await reply.delete();
+    res.json({ message: "Reply was deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
