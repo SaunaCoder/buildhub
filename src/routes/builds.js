@@ -41,8 +41,10 @@ router.get("/:buildId", authMiddleware, async (req, res) => {
     const doc = await db.collection("builds").doc(req.params.buildId).get();
     const levels_snapshot = await db.collection("builds").doc(req.params.buildId).collection("levels").get();
     const levels = levels_snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const comments_snapshot = await db.collection("builds").doc(req.params.buildId).collection("comments").get();
+    const comments = comments_snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (!doc.exists) return res.status(404).json({ message: "Build not found" });
-    res.json({ id: doc.id, ...doc.data(), levels });
+    res.json({ id: doc.id, ...doc.data(), levels, comments });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -267,5 +269,16 @@ router.delete('/:buildID/comments/:commentID/replies/:replyID', authMiddleware, 
     res.status(500).json({ error: err.message });
   }
 });
+
+router.get('/:buildID/comments/:commentID/replies', authMiddleware, async (req, res) => {
+  try {
+    const snapshot = db.collection('builds').doc(req.params.buildID).collection('comments').doc(req.params.commentID).collection('replies').doc(req.params.replyID);
+    const replies = await snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(replies);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 module.exports = router;
